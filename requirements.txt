@@ -1,0 +1,7 @@
+langgraph
+langgraph-checkpoint-sqlite
+langchain-core
+langchain-openai
+langchain-community
+langchain_gigachat
+pymorphy3

@@ -1,0 +1,9 @@
+{
+    "dependencies": ["."],
+    "graphs": {
+        "sales_assistant": {
+            "path": "app.agent:app"
+        }
+    },
+    "env": ".env"
+}

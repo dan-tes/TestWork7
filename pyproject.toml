@@ -1,0 +1,14 @@
+[project]
+name = "testwork7"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.13"
+dependencies = [
+    "langchain>=1.1.3",
+    "langchain-community>=0.4.1",
+    "langchain-openai>=1.1.3",
+    "langgraph>=1.0.5",
+    "langgraph-checkpoint-sqlite>=3.0.1",
+    "pymorphy3>=2.0.6",
+    "python-telegram-bot>=22.5",
+]
