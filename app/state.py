@@ -4,7 +4,5 @@ import operator
 
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], operator.add]
-    query: str
-    normalized_query: str
-    intent: str
+    normalized_query: str | None
     last_found_services: list[dict]

@@ -1,8 +1,10 @@
 import json
 import operator
 import os
+from json import JSONDecodeError
 from typing import TypedDict, Annotated, Sequence
 
+import httpx
 from dotenv import load_dotenv
 from langchain_core.messages import BaseMessage
 from langchain_gigachat.chat_models import GigaChat
@@ -10,10 +12,8 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import StateGraph, END
 
 from app.price_list import load_price_list, search_services
+from app.state import AgentState
 
-# -------------------------
-# ENV + LLM
-# -------------------------
 
 load_dotenv(verbose=True)
 
@@ -29,17 +29,6 @@ llm = GigaChat(
 # -------------------------
 
 PRICE_LIST = load_price_list()
-app = None
-
-
-# -------------------------
-# STATE
-# -------------------------
-
-class AgentState(TypedDict):
-    messages: Annotated[Sequence[BaseMessage], operator.add]
-    normalized_query: str | None
-    last_found_services: list[dict]
 
 
 # -------------------------
@@ -48,8 +37,7 @@ class AgentState(TypedDict):
 
 def analyze_question(state: AgentState) -> dict:
     """
-    Извлекаем ключевые слова услуги.
-    LLM НЕ знает прайс-лист.
+    Извлечение ключевых слов.
     """
     print(state["messages"])
     user_history = " ".join(
@@ -78,21 +66,36 @@ def analyze_question(state: AgentState) -> dict:
 }
 """
 
-    response = llm.invoke([
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_history},
-    ])
+    try:
+        response = llm.invoke([
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_history},
+        ])
 
-    data = json.loads(response.content)
+        data = json.loads(response.content)
 
-    return {
-        "normalized_query": data.get("normalized_query")
-    }
+        return {
+            "normalized_query": data.get("normalized_query")
+        }
+
+    except (httpx.HTTPError, JSONDecodeError, Exception) as e:
+        print(f"[LLM ERROR] {e}")
+
+        return {
+            "messages": state["messages"] + [{
+                "role": "assistant",
+                "content": (
+                    "Сервис обработки запросов временно недоступен. "
+                    "Пожалуйста, попробуйте позже."
+                )
+            }],
+            "normalized_query": None,
+        }
 
 
 def search_price_list_node(state: AgentState) -> dict:
     """
-    Поиск ТОЛЬКО по прайс-листу.
+    Поиск по прайс-листу.
     """
 
     query = state.get("normalized_query")
@@ -109,7 +112,7 @@ def search_price_list_node(state: AgentState) -> dict:
 
 def form_answer(state: AgentState) -> dict:
     """
-    Формируем финальный ответ пользователю.
+    Формирование финального ответа пользователю.
     """
 
     services = state.get("last_found_services", [])
@@ -161,4 +164,7 @@ _checkpointer = _checkpointer_cm.__enter__()
 
 
 def build_app():
+    return graph.compile(checkpointer=_checkpointer)
+
+def app():
     return graph.compile(checkpointer=_checkpointer)
